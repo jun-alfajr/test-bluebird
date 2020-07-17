@@ -14,7 +14,6 @@ func main() {
 	wsContainer := restful.NewContainer()
 	wsContainer.Add(product.ProductController{}.AddRouters())
 
-	// Add container filter to enable CORS
 	cors := restful.CrossOriginResourceSharing{
 		AllowedHeaders: []string{"Content-Type", "Accept", "Authorization"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
