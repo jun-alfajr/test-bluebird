@@ -2,11 +2,10 @@ package product
 
 import (
 	"github.com/emicklei/go-restful"
+	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/jun-alfajr/test-bluebird/db"
 )
-
-// in memory storage
-var products map[string]Product = make(map[string]Product)
 
 type ProductController struct {
 }
@@ -32,26 +31,49 @@ func createProduct(req *restful.Request, resp *restful.Response) {
 	}
 
 	product.ID = bson.NewObjectId()
-	products[product.ID.Hex()] = product
+	session := db.NewDBSession()
+	defer session.Close()
+	c := session.DB("").C("product")
+	err = c.Insert(product)
+	if err != nil {
+		resp.WriteError(500, err)
+		return
+	}
+
 	resp.WriteEntity(product)
 }
 
 func listProducts(req *restful.Request, resp *restful.Response) {
 	allProducts := make([]Product, 0)
-	for _, product := range products {
-		allProducts = append(allProducts, product)
+	session := db.NewDBSession()
+	defer session.Close()
+	c := session.DB("").C("product")
+	err := c.Find(bson.M{}).All(&allProducts)
+	if err != nil {
+		resp.WriteError(500, err)
+		return
 	}
+
 	resp.WriteEntity(allProducts)
 }
 
 func getProduct(req *restful.Request, resp *restful.Response) {
-	productId := req.PathParameter("producId")
-	if _, ok := products[productId]; !ok {
-		resp.WriteHeaderAndEntity(404, "not found")
+	productId := req.PathParameter("productId")
+	product := Product{}
+	session := db.NewDBSession()
+	defer session.Close()
+	c := session.DB("").C("product")
+	err := c.Find(bson.M{"_id": bson.ObjectIdHex(productId)}).One(&product)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			resp.WriteError(404, err)
+		} else {
+			resp.WriteError(500, err)
+		}
 		return
 	}
 
-	resp.WriteEntity(products[productId])
+	resp.WriteEntity(product)
 }
 
 func updateProduct(req *restful.Request, resp *restful.Response) {
@@ -62,24 +84,39 @@ func updateProduct(req *restful.Request, resp *restful.Response) {
 		resp.WriteHeaderAndEntity(400, "invald request")
 		return
 	}
-	if _, ok := products[productId]; !ok {
-		resp.WriteHeaderAndEntity(404, "not found")
+
+	product.ID = bson.ObjectIdHex(productId)
+	session := db.NewDBSession()
+	defer session.Close()
+	c := session.DB("").C("product")
+	err = c.Update(bson.M{"_id": product.ID}, product)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			resp.WriteError(404, err)
+		} else {
+			resp.WriteError(500, err)
+		}
 		return
 	}
 
-	product.ID = bson.ObjectIdHex(productId)
-	products[product.ID.Hex()] = product
 	resp.WriteEntity(product)
 }
 
 func deleteProduct(req *restful.Request, resp *restful.Response) {
 	productId := req.PathParameter("productId")
 
-	if _, ok := products[productId]; !ok {
-		resp.WriteHeaderAndEntity(404, "not found")
+	session := db.NewDBSession()
+	defer session.Close()
+	c := session.DB("").C("product")
+	err := c.RemoveId(productId)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			resp.WriteError(404, err)
+		} else {
+			resp.WriteError(500, err)
+		}
 		return
 	}
 
-	delete(products, productId)
 	resp.WriteHeader(200)
 }

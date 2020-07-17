@@ -5,10 +5,14 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful"
+	"github.com/jun-alfajr/test-bluebird/db"
 	"github.com/jun-alfajr/test-bluebird/product"
 )
 
 func main() {
+
+	db.InitDB()
+
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	wsContainer := restful.NewContainer()
